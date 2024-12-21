@@ -2,38 +2,37 @@ const express = require('express');
 const router = express.Router();
 const imageService = require('../services/imageService');
 const { v4: uuidv4 } = require('uuid');
-const { validateImageRequest } = require('../middleware/validateRequest');
+const { validateImageRequest, validateCancelRequest } = require('../middleware/validateRequest');
+const { ValidationError, ResourceError, RateLimitError } = require('../middleware/errorHandler');
 
-router.get('/models', (req, res) => {
+router.get('/models', (req, res, next) => {
     try {
         const models = imageService.getAvailableModels();
         res.json({ models });
     } catch (error) {
-        console.error('Error fetching models:', error);
-        res.status(500).json({ error: error.message });
+        next(error);
     }
 });
 
-router.post('/cancel', (req, res) => {
+router.post('/cancel', validateCancelRequest, async (req, res, next) => {
     try {
         const { requestId } = req.body;
-        if (!requestId) {
-            return res.status(400).json({ error: 'Request ID is required' });
-        }
-
         const cancelled = imageService.cancelRequest(requestId);
+        
         if (cancelled) {
-            res.json({ message: 'Request cancelled successfully' });
+            res.json({ 
+                message: 'Request cancelled successfully',
+                requestId 
+            });
         } else {
-            res.status(404).json({ error: 'Request not found or already completed' });
+            throw new ValidationError('Request not found or already completed');
         }
     } catch (error) {
-        console.error('Error cancelling request:', error);
-        res.status(500).json({ error: error.message });
+        next(error);
     }
 });
 
-router.post('/generate', validateImageRequest, async (req, res) => {
+router.post('/generate', validateImageRequest, async (req, res, next) => {
     const requestId = uuidv4();
     
     try {
@@ -45,8 +44,7 @@ router.post('/generate', validateImageRequest, async (req, res) => {
             prompt,
             width,
             height,
-            model,
-            timestamp: new Date().toISOString()
+            model
         });
 
         const result = await imageService.generateImage({
@@ -59,27 +57,22 @@ router.post('/generate', validateImageRequest, async (req, res) => {
 
         res.json({
             requestId,
-            ...result
+            ...result,
+            timestamp: new Date().toISOString()
         });
     } catch (error) {
-        console.error('Error generating image:', error);
-        
-        // Check for specific error types
+        // Convert specific errors to our custom error types
         if (error.message.includes('GPU memory')) {
-            res.status(503).json({
-                error: 'GPU resources are currently busy. Please try again in a few moments.',
-                details: error.message
-            });
+            next(new ResourceError('GPU resources are currently busy', error.message));
         } else if (error.message.includes('rate limit')) {
-            res.status(429).json({
-                error: 'Rate limit exceeded. Please wait before making another request.',
-                details: error.message
+            next(new RateLimitError('Rate limit exceeded', error.message));
+        } else if (error.message === 'Image generation cancelled') {
+            res.status(499).json({ 
+                error: 'Request cancelled',
+                requestId 
             });
         } else {
-            res.status(500).json({
-                error: 'Failed to generate image',
-                details: error.message
-            });
+            next(error);
         }
     }
 });
