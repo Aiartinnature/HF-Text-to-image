@@ -1,36 +1,35 @@
+const { v4: uuidv4 } = require('uuid');
+
 // Custom error classes
 class ValidationError extends Error {
-    constructor(message, details = []) {
+    constructor(message, details) {
         super(message);
         this.name = 'ValidationError';
         this.details = details;
-        this.statusCode = 400;
     }
 }
 
 class ResourceError extends Error {
-    constructor(message, details = '') {
+    constructor(message, details) {
         super(message);
         this.name = 'ResourceError';
         this.details = details;
-        this.statusCode = 503;
     }
 }
 
 class RateLimitError extends Error {
-    constructor(message, details = '') {
+    constructor(message, details) {
         super(message);
         this.name = 'RateLimitError';
         this.details = details;
-        this.statusCode = 429;
     }
 }
 
-// Error logging function
-const logError = (err, req) => {
-    const errorLog = {
+// Helper function to create error log object
+function createErrorLog(err, req) {
+    return {
         timestamp: new Date().toISOString(),
-        type: err.name || 'Error',
+        type: err.name || err.constructor.name,
         message: err.message,
         stack: err.stack,
         details: err.details,
@@ -43,56 +42,61 @@ const logError = (err, req) => {
             userAgent: req.get('user-agent')
         }
     };
+}
 
+// Helper function to log error details
+function logError(err, req) {
+    const errorLog = createErrorLog(err, req);
     console.error('Error details:', errorLog);
-};
+}
 
 // Main error handler middleware
-const errorHandler = (err, req, res, next) => {
+function errorHandler(err, req, res, next) {
     logError(err, req);
 
-    // Set default status code and message
-    let statusCode = err.statusCode || 500;
-    let message = err.message || 'Something went wrong!';
-    let details = err.details;
+    // Generate a unique request ID for tracking
+    const requestId = uuidv4();
 
     // Handle specific error types
-    switch (err.name) {
-        case 'ValidationError':
-            // Already handled by the error class
-            break;
-        case 'ResourceError':
-            // Already handled by the error class
-            break;
-        case 'RateLimitError':
-            // Already handled by the error class
-            break;
-        case 'TypeError':
-            statusCode = 400;
-            message = 'Invalid input type';
-            break;
-        case 'SyntaxError':
-            statusCode = 400;
-            message = 'Invalid request syntax';
-            break;
-        default:
-            // Hide internal error details in production
-            if (process.env.NODE_ENV === 'production') {
-                details = undefined;
-            }
+    if (err instanceof ValidationError) {
+        return res.status(400).json({
+            error: err.message,
+            details: err.details
+        });
     }
 
-    // Send error response
-    res.status(statusCode).json({
-        error: message,
-        details: details,
-        timestamp: new Date().toISOString()
-    });
-};
+    if (err instanceof ResourceError) {
+        return res.status(503).json({
+            error: err.message,
+            details: err.details
+        });
+    }
+
+    if (err instanceof RateLimitError) {
+        return res.status(429).json({
+            error: err.message,
+            details: err.details
+        });
+    }
+
+    // Handle custom status codes
+    const statusCode = err.statusCode || 500;
+    const errorResponse = {
+        error: process.env.NODE_ENV === 'development' ? err.message : (statusCode === 500 ? 'Internal server error' : err.message),
+        requestId
+    };
+
+    // Include stack trace in development
+    if (process.env.NODE_ENV === 'development' && err.stack) {
+        errorResponse.stack = err.stack;
+    }
+
+    res.status(statusCode).json(errorResponse);
+}
 
 module.exports = {
-    errorHandler,
     ValidationError,
     ResourceError,
-    RateLimitError
+    RateLimitError,
+    errorHandler
 };
