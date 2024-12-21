@@ -65,7 +65,18 @@ npm start
 
 The application will be available at `http://localhost:3000`
 
-## API Documentation
+## Documentation
+
+### API Documentation
+For detailed API documentation, please see [API Documentation](server/docs/api.md).
+
+The API documentation includes:
+- Available endpoints
+- Request/response formats
+- Error handling
+- Authentication
+- Rate limiting
+- Common error scenarios
 
 ### Server Endpoints
 
