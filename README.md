@@ -1,146 +1,181 @@
-# AI Image Generator
+# HF-Web: AI Image Generation Web Application
 
-A modern web application that generates images using the Hugging Face API based on text prompts. Built with React.js frontend and Node.js backend.
+A modern web application for AI image generation using various Hugging Face models. Built with React and Node.js.
 
 ## Features
 
-- Text-to-image generation using Hugging Face's Stable Diffusion model
-- Customizable image dimensions
-- Modern, responsive UI
-- Image download functionality
-- Real-time loading states and error handling
-
-## Project Structure
-
-```
-HF-Web/
-├── client/                 # React frontend
-│   ├── src/
-│   │   ├── components/    # React components
-│   │   │   └── ImageGenerator/
-│   │   │       ├── ImageGenerator.js    # Main component
-│   │   │       ├── PromptInput.js       # Text input component
-│   │   │       ├── DimensionControls.js # Size controls
-│   │   │       └── ImageDisplay.js      # Image display & download
-│   │   ├── services/     # API services
-│   │   │   └── imageService.js
-│   │   ├── App.js        # Root component
-│   │   └── index.js      # Entry point
-│   └── package.json
-└── server/                # Node.js backend
-    ├── config/
-    │   └── config.js      # Server configuration
-    ├── routes/
-    │   └── imageRoutes.js # API routes
-    ├── services/
-    │   └── imageService.js # Image generation service
-    ├── server.js          # Server entry point
-    └── package.json
-
-```
+- Multiple AI Model Support
+  - FLUX Models (Fast & Development versions)
+  - NewReality XL
+  - SDXL & SDXL LoRA
+  - Stable Diffusion (v1.5, v2.1)
+  - Openjourney
+- Real-time Image Generation
+- Model Selection Interface
+- Image Size Customization
+- Generation Cancel Support
+- Rate Limit Handling
+- Error Recovery
+- Responsive UI
 
 ## Prerequisites
 
 - Node.js (v14 or higher)
-- npm (v6 or higher)
-- Hugging Face API key
+- NPM (v6 or higher)
+- A Hugging Face API key
 
-## Setup
+## Installation
 
 1. Clone the repository:
-   ```bash
-   git clone <repository-url>
-   cd HF-Web
-   ```
+```bash
+git clone [repository-url]
+cd HF-Web
+```
 
-2. Install dependencies:
-   ```bash
-   # Install server dependencies
-   cd server
-   npm install
+2. Install dependencies for both server and client:
+```bash
+# Install server dependencies
+cd server
+npm install
 
-   # Install client dependencies
-   cd ../client
-   npm install
-   ```
+# Install client dependencies
+cd ../client
+npm install
+```
 
-3. Configure environment variables:
-   Create a `.env` file in the server directory:
-   ```
-   HUGGINGFACE_API_KEY=your_api_key_here
-   PORT=5000
-   ```
+3. Create a `.env` file in the server directory:
+```env
+PORT=5000
+HUGGINGFACE_API_KEY=your_api_key_here
+```
 
-4. Start the application:
-   ```bash
-   # Start the server (from server directory)
-   node server.js
+## Running the Application
 
-   # Start the client (from client directory)
-   npm start
-   ```
+1. Start the server:
+```bash
+cd server
+npm start
+```
 
-## API Endpoints
+2. Start the client:
+```bash
+cd client
+npm start
+```
 
-### `POST /api/image/generate`
-Generates an image based on the provided prompt and dimensions.
+The application will be available at `http://localhost:3000`
 
-Request body:
+## API Documentation
+
+### Server Endpoints
+
+#### 1. Generate Image
+- **Endpoint**: `/api/generate`
+- **Method**: POST
+- **Description**: Generates an image based on the provided prompt and parameters
+- **Request Body**:
+  ```json
+  {
+    "prompt": "string",
+    "width": "number",
+    "height": "number",
+    "model": "string"
+  }
+  ```
+- **Response**: Base64 encoded image data
+- **Error Responses**:
+  - 400: Invalid parameters
+  - 429: Rate limit exceeded
+  - 500: Server error
+
+#### 2. Cancel Generation
+- **Endpoint**: `/api/cancel`
+- **Method**: POST
+- **Description**: Cancels an ongoing image generation
+- **Request Body**:
+  ```json
+  {
+    "requestId": "string"
+  }
+  ```
+- **Response**: Success message
+
+#### 3. Get Available Models
+- **Endpoint**: `/api/models`
+- **Method**: GET
+- **Description**: Returns list of available AI models
+- **Response**:
+  ```json
+  [
+    {
+      "key": "string",
+      "name": "string",
+      "description": "string"
+    }
+  ]
+  ```
+
+### Error Handling
+
+The API includes comprehensive error handling for:
+- Rate limiting
+- GPU memory issues
+- Model availability
+- Network timeouts
+- Invalid requests
+
+Error responses follow this format:
 ```json
 {
-  "prompt": "string",
-  "width": number,
-  "height": number
+  "error": "string",
+  "details": "string" (optional)
 }
 ```
 
-Response:
-```json
-{
-  "image": "base64_encoded_image"
-}
+## Configuration
+
+### Available Models
+
+The application supports multiple AI models, configured in `server/config/config.js`:
+
+1. FLUX Schnell
+   - Fast, efficient generations
+   - Default model
+
+2. FLUX Dev
+   - Latest features and improvements
+   - Development version
+
+3. NewReality XL
+   - High-quality photorealistic generations
+   - Advanced capabilities
+
+4. SDXL LoRA
+   - Fine-tuned SDXL model
+   - Enhanced text-to-image generation
+
+5. Stable Diffusion XL
+   - Latest SD version
+   - High quality and photorealism
+
+6. Stable Diffusion v2.1
+   - Improved quality and consistency
+   - Stable performance
+
+7. Stable Diffusion v1.5
+   - Original SD model
+   - General purpose generation
+
+8. Openjourney
+   - Artistic style optimization
+   - Creative generations
+
+### Client Configuration
+
+The client can be configured through environment variables in `.env`:
+```env
+REACT_APP_API_URL=http://localhost:5000
 ```
-
-## Component Documentation
-
-### ImageGenerator
-Main component that orchestrates the image generation process.
-- Manages application state
-- Handles form submission
-- Coordinates between child components
-
-### PromptInput
-Handles user input for the image generation prompt.
-- Input validation
-- Error display
-- Character limit enforcement
-
-### DimensionControls
-Controls for image dimensions.
-- Width selection
-- Height selection
-- Preset dimension options
-
-### ImageDisplay
-Displays the generated image and provides download functionality.
-- Image rendering
-- Download button
-- Loading state display
-
-## Environment Variables
-
-### Server
-- `HUGGINGFACE_API_KEY`: Your Hugging Face API key
-- `PORT`: Server port (default: 5000)
-
-## Error Handling
-
-The application includes comprehensive error handling:
-- Invalid API key detection
-- Network error handling
-- Input validation
-- Server-side error responses
-- User-friendly error messages
 
 ## Contributing
 
@@ -152,4 +187,15 @@ The application includes comprehensive error handling:
 
 ## License
 
-This project is licensed under the MIT License.
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Recent Updates
+
+### Latest Changes (December 2024)
+- Added NewReality XL model
+- Added SDXL LoRA support
+- Improved error handling for GPU memory issues
+- Enhanced rate limit feedback
+- Added model cancellation feature
+- Updated UI with better error messages
+- Improved documentation
