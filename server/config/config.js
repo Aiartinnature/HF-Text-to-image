@@ -1,4 +1,4 @@
-git push -u origin masterrequire('dotenv').config();
+require('dotenv').config();
 
 const config = {
     port: process.env.PORT || 5000,
