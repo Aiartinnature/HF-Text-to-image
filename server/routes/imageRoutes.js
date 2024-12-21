@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const imageService = require('../services/imageService');
 const { v4: uuidv4 } = require('uuid');
+const { validateImageRequest } = require('../middleware/validateRequest');
 
 router.get('/models', (req, res) => {
     try {
@@ -32,17 +33,12 @@ router.post('/cancel', (req, res) => {
     }
 });
 
-router.post('/generate', async (req, res) => {
+router.post('/generate', validateImageRequest, async (req, res) => {
     const requestId = uuidv4();
     
     try {
         const { prompt, width, height, model } = req.body;
         
-        // Input validation
-        if (!prompt) {
-            return res.status(400).json({ error: 'Prompt is required' });
-        }
-
         // Log request details
         console.log('Image generation request:', {
             requestId,
@@ -53,37 +49,38 @@ router.post('/generate', async (req, res) => {
             timestamp: new Date().toISOString()
         });
 
-        // Validate dimensions
-        const parsedWidth = parseInt(width);
-        const parsedHeight = parseInt(height);
-        
-        if (width && isNaN(parsedWidth)) {
-            return res.status(400).json({ error: 'Width must be a number' });
-        }
-        if (height && isNaN(parsedHeight)) {
-            return res.status(400).json({ error: 'Height must be a number' });
-        }
-
-        const image = await imageService.generateImage(prompt, parsedWidth, parsedHeight, model, requestId);
-        
-        if (!image) {
-            throw new Error('Failed to generate image: No image data received');
-        }
-
-        res.json({ image, requestId });
-    } catch (error) {
-        console.error('Error in /generate endpoint:', error);
-        
-        // Don't send error for cancelled requests
-        if (error.message === 'Image generation cancelled') {
-            return res.status(499).json({ error: 'Request cancelled' });
-        }
-
-        res.status(500).json({ 
-            error: error.message || 'Failed to generate image',
-            details: process.env.NODE_ENV === 'development' ? error.stack : undefined,
-            requestId
+        const result = await imageService.generateImage({
+            requestId,
+            prompt,
+            width,
+            height,
+            model
         });
+
+        res.json({
+            requestId,
+            ...result
+        });
+    } catch (error) {
+        console.error('Error generating image:', error);
+        
+        // Check for specific error types
+        if (error.message.includes('GPU memory')) {
+            res.status(503).json({
+                error: 'GPU resources are currently busy. Please try again in a few moments.',
+                details: error.message
+            });
+        } else if (error.message.includes('rate limit')) {
+            res.status(429).json({
+                error: 'Rate limit exceeded. Please wait before making another request.',
+                details: error.message
+            });
+        } else {
+            res.status(500).json({
+                error: 'Failed to generate image',
+                details: error.message
+            });
+        }
     }
 });
 

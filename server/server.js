@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const config = require('./config/config');
 const imageRoutes = require('./routes/imageRoutes');
+const errorHandler = require('./middleware/errorHandler');
 
 // Validate environment variables
 if (!process.env.HUGGINGFACE_API_KEY) {
@@ -20,18 +21,7 @@ app.use(express.json());
 app.use('/api/image', imageRoutes);
 
 // Error handling middleware
-app.use((err, req, res, next) => {
-    console.error('Error details:', {
-        message: err.message,
-        stack: err.stack,
-        details: err.details || 'No additional details'
-    });
-    
-    res.status(500).json({ 
-        error: err.message || 'Something went wrong!',
-        details: process.env.NODE_ENV === 'development' ? err.details : undefined
-    });
-});
+app.use(errorHandler);
 
 // Start server
 const port = process.env.PORT || 5000;
